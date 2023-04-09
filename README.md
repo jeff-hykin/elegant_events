@@ -1,32 +1,89 @@
 # What is this?
 
-A template for python packages
-
-# How do I fill out this template?
-
-1. Change the `pyproject.toml` file (package name, version, etc)
-2. Change the `./main/your_package_name` folder
-3. Edit the `./main/your_package_name/__init__.py` file, and change the `from your_package_name.main import *`
-4. Open the `./main/setup.py` and edit the `install_requires=` part to include dependencies
-5. Edit this readme (it will be the front page of the package)
-6. Edit the `./main/your_package_name/main.py` to have your library in it
-7. Run `project local_install` to install what you just made
-8. Run `project publish` to release your package
-
-
-## (Readme template below)
-
-# What is this?
-
-(Your answer here)
+A simple event manager that works between processes
 
 # How do I use this?
 
-`pip install your_package_name`
+`pip install elegant_events`
+
+file1.py
+
+```python
+from elegant_events import Server
+
+# will spinup a server in the background if one isn't already running
+server1 = Server("localhost", 7070)
+
+# 
+# listener examples:
+# 
+
+# attach a listener that triggers every time
+@server1.whenever("found_an_event")
+def when_event_found(timestamp, data):
+    print(f'''data = {data}''')
+
+# attach a listener that will only trigger on the next occurance
+@server1.once("found_an_event")
+def when_event_found(timestamp, data):
+    print(f'''data = {data}''')
+
+# 
+# send data example
+# 
+server1.tell(path="found_an_event", data="Hello from same process")
+
+
+# 
+# receive events examples:
+# 
+
+# manually check (e.g. the cooperative multitasking approach)
+sleep(10) # (run the file2.py while this file is sleeping)
+server1.check()
+# because `.tell()` was called twice, when_event_found() will be triggered twice right here
+
+# auto check (very efficiently wait for events from other processes)
+# e.g. DONT do:
+#     while True: server1.check()
+server1.listen_forever() # 
+```
+
+
+file2.py
+
+```python
+from elegant_events import Server
+
+# will spinup a server in the background if one isn't already running
+server1 = Server("localhost", 7070)
+
+# "data" can be anything that works with json.dumps()
+server1.tell(path="found_an_event", data={"Hello from different process!": True})
+```
+
+# API
 
 
 ```python
-from your_package_name import something
+from elegant_events import Server
 
-# example of how to use your package here
+# will spinup a server in the background if one isn't already running
+server1 = Server("localhost", 7070)
+
+# temp stop listening for an event
+server1.stop_keeping_track_of("found_an_event")
+# resume listening for an event
+server1.keep_track_of("found_an_event")
+
+# attach a listener that triggers every time
+@server1.whenever("found_an_event", catch_and_print_errors=False)
+def when_event_found(timestamp, data):
+    pass
+
+# attach a listener that will only trigger on the next occurance
+@server1.once("found_an_event", catch_and_print_errors=False)
+def when_event_found(timestamp, data):
+    print(f'''data = {data}''')
+    
 ```

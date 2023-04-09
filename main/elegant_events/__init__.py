@@ -3,10 +3,14 @@ import json
 import time
 import traceback
 import asyncio
+import sys
 
-from websockets.sync.client import connect   # pip install websockets
-import json_fix                              # pip install json-fix
+from elegant_events.__dependencies__ import json_fix
+from elegant_events.__dependencies__ import websockets
+from elegant_events.__dependencies__.websockets.sync import client
 
+
+connect = websockets.sync.client.connect
 this_file = __file__ # seems dumb but will break in interpreter if not assigned to a var
 
 class Server:
@@ -20,7 +24,11 @@ class Server:
         self.callbacks   = {}
         self.debugging   = debugging
         try:
+            debugging and print("trying to connect")
             with connect(f"{self.url_base}/builtin/ping") as websocket:
+                debugging and print("sending message")
+                websocket.send("ping")
+                debugging and print("waiting for message")
                 message = websocket.recv()
                 if message != "pong":
                     raise Exception(f'''Ping-pong with {self.url_base} failed, received: {repr(message)}''')
@@ -92,8 +100,8 @@ class Server:
     
     def trigger(self, path, timestamp, data):
         new_callbacks_list = []
-        for error_will_stop_main, runs_once, each_callback in self.callbacks.get(path, []):
-            if error_will_stop_main:
+        for catch_and_print_errors, runs_once, each_callback in self.callbacks.get(path, []):
+            if not catch_and_print_errors:
                 each_callback(timestamp, data)
             else:
                 try:
@@ -102,24 +110,24 @@ class Server:
                     # print the full stack trace, but keep going
                     traceback.print_exc()
             if not runs_once:
-                new_callbacks_list.append((error_will_stop_main, runs_once, each_callback))
+                new_callbacks_list.append((catch_and_print_errors, runs_once, each_callback))
         # new list doesn't have any run_once functions
         self.callbacks[path] = new_callbacks_list
             
-    def whenever(self, path, error_will_stop_main=False):
+    def whenever(self, path, catch_and_print_errors=True):
         self.keep_track_of(path)
         runs_once = False
         def function_getter(function_being_wrapped):
             self.callbacks[path] = self.callbacks.get(path, [])
-            self.callbacks[path].append((error_will_stop_main, runs_once, function_being_wrapped))
+            self.callbacks[path].append((catch_and_print_errors, runs_once, function_being_wrapped))
         return function_getter
     
-    def once(self, path, error_will_stop_main=False):
+    def once(self, path, catch_and_print_errors=True):
         self.keep_track_of(path)
         runs_once = True
         def function_getter(function_being_wrapped):
             self.callbacks[path] = self.callbacks.get(path, [])
-            self.callbacks[path].append((error_will_stop_main, runs_once, function_being_wrapped))
+            self.callbacks[path].append((catch_and_print_errors, runs_once, function_being_wrapped))
         return function_getter
         
     def listen_forever(self):
@@ -142,7 +150,7 @@ def start_server(address, port):
     import argparse 
     import base64
 
-    from websockets import serve # pip install websockets
+    serve = websockets.serve
     
     listeners = {}
     trackers = {}
