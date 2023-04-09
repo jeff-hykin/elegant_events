@@ -7,7 +7,7 @@ authors=[ "Jeff Hykin" ]
 [tool.extra]
 author='Jeff Hykin'
 author_email='jeff.hykin@gmail.com'
-url='git@github.com:jeff-hykin/elegant_events.git'
+url='https://github.com/jeff-hykin/elegant_events'
 license = "MIT"
 
 [[tool.extra.pure_python_packages]]
