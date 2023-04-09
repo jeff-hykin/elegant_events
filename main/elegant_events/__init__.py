@@ -1,8 +1,3 @@
-# 1. start a server process
-# 2. dump event data to a server
-# 3. listen to event data from a server collaboratively (polling)
-# 4. listen to event data from a server synchonously 
-
 from random import random
 import json
 import time
