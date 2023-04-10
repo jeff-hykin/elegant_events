@@ -18,13 +18,13 @@ server1 = Server("localhost", 7070)
 # listener examples:
 # 
 
-# attach a listener that triggers every time
+# attach a callback that triggers every time
 @server1.whenever("found_an_event")
 def when_event_found(timestamp, data):
     print(f'''data = {data}''')
 
-# attach a listener that will only trigger on the next occurance
-@server1.once("found_an_event")
+# attach a callback that will only trigger one time
+@server1.once("something_started")
 def when_event_found(timestamp, data):
     print(f'''data = {data}''')
 

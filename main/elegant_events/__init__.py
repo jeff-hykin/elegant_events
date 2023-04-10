@@ -19,9 +19,9 @@ url_encode = lambda string: urllib.parse.quote(string.encode('utf8'))
 class Server:
     # TODO: add a get-time endpoint
     # TODO: add a get-id endpoint to allow for shorter ids (to save on bandwith)
-    # TODO: add a whenever(only_most_recent) that will look at the backlog-batch and only trigger on the most recent one
+    # TODO: add a whenever(only_most_recent) that will look at the backlog-batch and only trigger on the most recent one (intentionally drop packets)
     # TODO: add a "who did what" debugging tool
-    # TODO: add a push(for="id") that pre-fills the backlog for a particular client
+    # TODO: add a push(to="id") that pre-fills the backlog for a particular client
     def __init__(self, address, port, debugging=False, client_name=None):
         self.address            = address
         self.port               = port
