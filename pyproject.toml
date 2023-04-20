@@ -9,6 +9,7 @@ author='Jeff Hykin'
 author_email='jeff.hykin@gmail.com'
 url='https://github.com/jeff-hykin/elegant_events'
 license = "MIT"
+main_module_path = "main/elegant_events"
 
 [[tool.extra.pure_python_packages]]
 path = "main/elegant_events"
