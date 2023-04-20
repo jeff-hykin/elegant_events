@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "elegant_events"
-version = "0.0.1"
+version = "0.1.0"
 description = "Easily send data and events between processes, or within a single process"
 authors=[ "Jeff Hykin" ]
 
