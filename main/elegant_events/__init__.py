@@ -1,3 +1,10 @@
+if __name__ == '__main__':
+    import sys
+    # to be fully pure, the module name is dynamic to allow for any name (two versions of elegant_events could run at the same time under different names)
+    exec(f"import {sys.argv[1]} as elegant_events")
+    elegant_events.start_server(address=sys.argv[2], port=sys.argv[3])
+    exit(0)
+
 from random import random
 import json
 import time
@@ -48,31 +55,47 @@ class Server:
                 [
                     sys.executable,
                     this_file,
+                    __name__,
                     address,
                     f"{port}",
                 ],
                 **(dict(stdout=sys.stdout) if self.debugging else dict(stdout=subprocess.PIPE)),
                 # stderr=subprocess.STDOUT,
             )
+            print(f'''server pid: {_process.pid}''')
+            # keep trying until it works
+            while 1:
+                try:
+                    with connect(f"{self.url_base}/builtin/ping") as websocket:
+                        debugging and print("sending message")
+                        websocket.send("ping")
+                        debugging and print("waiting for message")
+                        message = websocket.recv()
+                        if message == "pong":
+                            debugging and print("got message")
+                            break
+                except Exception as error:
+                    time.sleep(1)
+            
     
     def _builtin_yell(self, path, data):
         path = "builtin/"+path
         if not self.connections.get(path, None):
-            self.connections[path] = connect(url_encode(f"{self.url_base}/{path}"))
+            self.connections[path] = connect(self.url_base+"/"+url_encode(path))
         self.connections[path].send(json.dumps(data))
         return self.connections[path]
     
     def yell(self, event_name, *, data):
         path = "yell/"+event_name
         if not self.connections.get(path, None):
-            self.connections[path] = connect(url_encode(f"{self.url_base}/{path}"))
+            self.connections[path] = connect(self.url_base+"/"+url_encode(path))
         self.connections[path].send(json.dumps(data))
         return self.connections[path]
     
     def push(self, event_name, *, data, max_size=math.inf):
         path = "push/"+event_name
         if not self.connections.get(path, None):
-            self.connections[path] = connect(url_encode(f"{self.url_base}/{path}"))
+            self.connections[path] = connect(self.url_base+"/"+url_encode(path))
         # max_size is a string because json cant handle Infinite
         self.connections[path].send(json.dumps([f"{max_size}", data]))
         return self.connections[path]
@@ -237,6 +260,8 @@ def start_server(address, port):
                 # clear out the backlog if there was one
                 for each_value in self.backlog.values():
                     each_value.clear()
+            
+            print(f"finished sorting {event_name} into backlog, {self.backlog}")
                 
     # 
     # socket setup
@@ -245,7 +270,6 @@ def start_server(address, port):
         async for message in websocket:
             if websocket.path == "/builtin" or websocket.path.startswith("/builtin/"):
                 if websocket.path == "/builtin/ping":
-                    print("sending pong")
                     await websocket.send("pong")
                 elif websocket.path == "/builtin/keep_track_of":
                     the_id, event_name, *additional_args = json.loads(message)
@@ -272,12 +296,12 @@ def start_server(address, port):
                         if each_event_name in the_paths:
                             for timestamp, message in packets:
                                 if timestamp > client.started_listening_to[each_event_name]:
-                                    client.sort_message_into_backlog(each_event_name, timestamp, message)
+                                    await client.sort_message_into_backlog(each_event_name, timestamp, message)
                     
                     # send the part of the backlog that it asked for
                     return_message = {}
                     for each_event_name in the_paths:
-                        return_message[each_event_name] = client.backlog.get(each_event_name,[])
+                        return_message[each_event_name] = list(client.backlog.get(each_event_name,[]))
                         client.backlog.get(each_event_name,[]).clear()
                     await websocket.send(json.dumps([return_message, time.time()]))
                 elif websocket.path == "/builtin/listen":
@@ -287,7 +311,7 @@ def start_server(address, port):
                     for each_event_name, packets in replay_buffer.items():
                         for timestamp, message in packets:
                             if timestamp > client.started_listening_to[each_event_name]:
-                                client.sort_message_into_backlog(each_event_name, timestamp, message)
+                                await client.sort_message_into_backlog(each_event_name, timestamp, message)
                     
                     client.active_listening_socket = websocket # even if it already had a socket, only use the latest one
                     
@@ -305,7 +329,7 @@ def start_server(address, port):
                 event_name = urllib.parse.unquote(websocket.path[len("/yell/"):])
                 timestamp = time.time()
                 for each_client in Client.trackers[event_name]:
-                    each_client.sort_message_into_backlog(event_name, timestamp, message)
+                    await each_client.sort_message_into_backlog(event_name, timestamp, message)
             elif websocket.path.startswith("/push/"):
                 # parse message
                 event_name  = urllib.parse.unquote(websocket.path[len("/push/"):])
@@ -328,8 +352,10 @@ def start_server(address, port):
                     replay_buffer[event_name] = this_replay_buffer[-buffer_size:]
                 
                 for each_client in Client.trackers[event_name]:
-                    each_client.sort_message_into_backlog(event_name, timestamp, message)
-                        
+                    await each_client.sort_message_into_backlog(event_name, timestamp, message)
+            else:
+                print(f"websocket.path: {websocket.path} isn't known")
+                
     # 
     # start servers
     # 
@@ -338,7 +364,3 @@ def start_server(address, port):
             await asyncio.Future()  # run forever
 
     asyncio.run(main())
-
-if __name__ == '__main__':
-    import sys
-    start_server(address=sys.argv[1], port=sys.argv[2])
