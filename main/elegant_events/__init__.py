@@ -31,10 +31,10 @@ connect = websockets.sync.client.connect
 this_file = __file__ # seems dumb but will break in interpreter if not assigned to a var
 url_encode = lambda string: urllib.parse.quote(string.encode('utf8'))
 
-def optional_ssl_kwarg(client_name=None, cert_filepath=None, key_filepath=None, password=None,):
+def optional_ssl_kwarg(protocol, client_name=None, cert_filepath=None, key_filepath=None, password=None,):
     if client_name:
         import ssl
-        ssl_object = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_object = ssl.SSLContext(protocol)
         ssl_object.load_cert_chain(
             cert_filepath,
             keyfile=key_filepath,
@@ -61,7 +61,7 @@ class Server:
         self.time_at_prev_check = 0 # start at begining of time, to fetch any/all missed messages
         try:
             debugging and print("trying to connect")
-            with connect(f"{self.url_base}/builtin/ping", **optional_ssl_kwarg(cert_filepath, key_filepath, password)) as websocket:
+            with connect(f"{self.url_base}/builtin/ping", **optional_ssl_kwarg(ssl.PROTOCOL_TLS_CLIENT, cert_filepath, key_filepath, password)) as websocket:
                 debugging and print("sending message")
                 websocket.send("ping")
                 debugging and print("waiting for message")
@@ -384,7 +384,7 @@ def start_server(address, port, cert_filepath=None, key_filepath=None, password=
     # start servers
     # 
     async def main():
-        async with serve(socket_response, address, port, **optional_ssl_kwarg(cert_filepath, key_filepath, password)):
+        async with serve(socket_response, address, port, **optional_ssl_kwarg(ssl.PROTOCOL_TLS_SERVER, cert_filepath, key_filepath, password)):
             await asyncio.Future()  # run forever
 
     asyncio.run(main())
