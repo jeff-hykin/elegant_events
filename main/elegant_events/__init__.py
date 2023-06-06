@@ -44,8 +44,9 @@ def optional_ssl_kwarg(protocol, client_name=None, cert_filepath=None, key_filep
     return {}
 
 class Server:
+    # TODO:
+        # add a que system for storing messages for not-yet-online devices
     # TODO: add a get-time endpoint
-    # TODO: add a get-id endpoint to allow for shorter ids (to save on bandwith)
     # TODO: add a whenever(only_most_recent) that will look at the backlog-batch and only trigger on the most recent one (intentionally drop packets)
     # TODO: add a "who did what" debugging tool
     # TODO: add a push(to="id") that pre-fills the backlog for a particular client
@@ -53,7 +54,29 @@ class Server:
         self.address            = address
         self.port               = port
         self.connections        = dict()
-        self.client_id          = client_name if client_name != None else f"{random()}"
+        self.client_id          = f"@{client_name}"
+        if self.client_id == None:
+            import socket
+            import os
+            import inspect
+            # https://stackoverflow.com/questions/28021472/get-relative-path-of-caller-in-python
+            try:
+                frame = inspect.stack()[1]
+                module = inspect.getmodule(frame[0])
+                directory = os.path.abspath(module.__file__)
+            # if inside a repl (error =>) assume that the working directory is the path
+            except (AttributeError, IndexError) as error:
+                directory = os.getcwd()
+            
+            if os.path.isabs(directory):
+                path_to_caller = directory
+            else:
+                # See note at the top
+                path_to_caller = join(intial_cwd, directory)
+            # networking name, followed by where its being called from, followed by unique-ifying salt
+            # TODO: improve this by having a builtin-"get_anon_id" endpoint, to allow for shorter ids (to save on bandwith)
+            self.client_id = f"{socket.gethostname()}:{os.path.basename(path_to_caller)}:{random()}"
+        
         self.tracking           = []
         self.url_base           = f"ws://{self.address}:{self.port}" if not client_name else f"wss://{self.address}:{self.port}"
         self.callback_entries   = {} # key1=event_name, value=list of (callback_func, should_catch_and_print_errors, runs_once, time_threshold)
